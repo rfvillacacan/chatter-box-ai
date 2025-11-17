@@ -1,18 +1,15 @@
 {
-  "name": "chatter-backend",
+  "name": "chatter-debate",
   "version": "1.0.0",
-  "type": "module",
+  "description": "Multi-agent debate system with beautiful chat UI",
   "scripts": {
-    "dev": "node --watch server.js",
-    "start": "node server.js",
-    "test": "MOCK_AGENT_RESPONSES=true node --test tests"
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
-  "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "openai": "^4.20.1",
-    "ws": "^8.14.2"
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }
 

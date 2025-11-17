@@ -1,0 +1,201 @@
+The error is exactly the same, at exactly the same place, so whatever is wrong in `ChatRoom.tsx` near the bottom is still there:
+
+```text
+ChatRoom.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. (471:4)
+  469 |         </section>
+  470 |       </div>
+> 471 |     </div>
+      |     ^
+  472 |   );
+  473 | }
+```
+
+This is a **pure JSX syntax error**. Vite/React is telling you: “inside one JSX expression, I’m seeing more than one sibling root”.
+
+Because I can’t see your file, here is how to fix and verify it cleanly.
+
+---
+
+### 1. Prove the error is only in this file
+
+Temporarily replace `src/components/ChatRoom.tsx` with a minimal, valid component:
+
+```tsx
+// C:\cursor\chatter\frontend\src\components\ChatRoom.tsx
+import React from "react";
+
+export function ChatRoom() {
+  return (
+    <div style={{ padding: "2rem" }}>
+      ChatRoom placeholder
+    </div>
+  );
+}
+
+export default ChatRoom;
+```
+
+Save and run:
+
+```bash
+npm run dev
+```
+
+If the dev server now works and the browser shows “ChatRoom placeholder”, that confirms the rest of your project is fine and the bug was **inside your original JSX**.
+
+After that, put your real JSX back, but fix it according to the checks below.
+
+---
+
+### 2. Rules you must satisfy in `ChatRoom.tsx`
+
+Inside the component:
+
+```tsx
+export function ChatRoom() {
+  return (
+    /* HERE: exactly ONE root JSX wrapper */
+    <div className="...">
+      {/* all inner layout, sections, sidebars, etc. */}
+    </div>
+  );
+}
+```
+
+You must not have:
+
+```tsx
+export function ChatRoom() {
+  return (
+    <Sidebar />
+    <MainPanel />     // ❌ two siblings inside one return
+  );
+}
+```
+
+Or:
+
+```tsx
+export function ChatRoom() {
+  return (
+    <div>...</div>
+  );
+}
+
+<Footer />           // ❌ JSX outside any function
+```
+
+Or:
+
+```tsx
+export function ChatRoom() {
+  return (
+    <div>...</div>
+  )
+  <Another />        // ❌ JSX after the return, same statement
+}
+```
+
+If you really need multiple top-level visual pieces, wrap them:
+
+```tsx
+export function ChatRoom() {
+  return (
+    <>
+      <Sidebar />
+      <MainPanel />
+    </>
+  );
+}
+```
+
+or a single `<div>`.
+
+---
+
+### 3. What to look for around line ~471
+
+Open `ChatRoom.tsx` and go to around line 430–480. You will see something like:
+
+```tsx
+export function ChatRoom() {
+  return (
+    <div className="...">
+      {/* ... many nested tags ... */}
+        </section>
+      </div>
+    </div>   // line 471 (according to the error)
+  );         // 472
+}            // 473
+```
+
+You must verify:
+
+1. That this last `</div>` really closes the **only** top-level wrapper for the `return`.
+2. That there is **no JSX after the `);`** and before the closing brace `}`.
+3. That there is no stray JSX anywhere after `}` at file level.
+
+Common gotchas:
+
+* An extra component rendered after the return:
+
+  ```tsx
+  export function ChatRoom() {
+    return (
+      <div>...</div>
+    );
+    <DebugPanel />    // ❌
+  }
+  ```
+
+* A stray JSX snippet at file bottom:
+
+  ```tsx
+  export default ChatRoom;
+
+  <DevToolsOverlay /> // ❌
+  ```
+
+* An unclosed tag earlier that makes the parser think the root ended early:
+
+  ```tsx
+  return (
+    <div>
+      <section>
+        <div>Chat</div>
+      {/* missing </section> here ❌ */}
+    </div>
+  );
+  ```
+
+  So count your opening/closing tags from around the last `return (` downwards.
+
+---
+
+### 4. If you want a safe skeleton to paste
+
+If you want to be sure the tail is syntactically correct, you can enforce this structure at the end of the file and move your inner layout inside the wrapper:
+
+```tsx
+// ... imports and other code above ...
+
+export function ChatRoom() {
+  return (
+    <div className="flex h-screen">
+      {/* MOVE ALL YOUR EXISTING JSX HERE, inside this div */}
+      {/* Example:
+      <aside>...</aside>
+      <main>...</main>
+      */}
+    </div>
+  );
+}
+
+export default ChatRoom;
+```
+
+Then rebuild. If it compiles, gradually reintroduce any removed parts until you see what re-introduces the error.
+
+---
+
+If you paste the `export function ChatRoom() { ... }` block (from `return (` to the end of the file), I can rewrite it to a guaranteed-valid version that preserves your layout.
